@@ -1,0 +1,14 @@
+# Local Environment Configuration
+.env
+
+# SQLite Production Database Storage
+# Note: Keep this commented out if you want to initialize and track your 
+# database directly inside your git repository commits.
+# problems.db
+
+# Visual Layout Dry Run Previews
+dry_run_preview.html
+
+# Local Environment Python Cache
+__pycache__/
+*.pyc

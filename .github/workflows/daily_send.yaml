@@ -1,0 +1,43 @@
+name: Daily Problem Scheduler
+
+on:
+  schedule:
+    # Triggers daily at 05:00 UTC (Adjust timing string as preferred)
+    - cron: '0 5 * * *'
+  workflow_dispatch: # Allows manual tracking execution overrides
+
+jobs:
+  run-scheduler:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Execute Distribution Dispatch Script
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_SUBJECT_PREFIX: ${{ secrets.EMAIL_SUBJECT_PREFIX }}
+          DB_PATH: "problems.db"
+          SCHEDULE_MODE: ${{ secrets.SCHEDULE_MODE }}
+          DAILY_COUNT: ${{ secrets.DAILY_COUNT }}
+          WEEKLY_COUNT: ${{ secrets.WEEKLY_COUNT }}
+          WEEKLY_DAY: ${{ secrets.WEEKLY_DAY }}
+        run: python send_emails.py
+
+      - name: Commit and Push Changes Database Engine File
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add problems.db
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update state tracking database [skip ci]" && git push)

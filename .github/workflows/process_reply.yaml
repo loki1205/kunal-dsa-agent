@@ -1,0 +1,32 @@
+name: Process Email Reply Trigger
+
+on:
+  repository_dispatch:
+    types: [process_reply]
+
+jobs:
+  update-state:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Process Commands and Update State
+        env:
+          DB_PATH: "problems.db"
+          EMAIL_BODY_PAYLOAD: ${{ github.event.client_payload.email_body }}
+        run: python process_reply.py
+
+      - name: Commit and Push DB Updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add problems.db
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Sync database state changes from email response" && git push)
