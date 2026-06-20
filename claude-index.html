@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>kunal status — DSA Agent Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --ink: #0A0E14;
+  --ink-2: #0D1320;
+  --panel: #121927;
+  --panel-raised: #1A2334;
+  --panel-hover: #20293C;
+  --line: #26324A;
+  --line-soft: #1C2536;
+  --paper: #EDE9DF;
+  --paper-dim: #C9C4B6;
+  --mute: #7C8AA3;
+  --mute-dim: #57647C;
+
+  --new: #F2B544;
+  --new-dim: #5A4A28;
+  --wip: #8C86F0;
+  --wip-dim: #322E5C;
+  --done: #5FCB94;
+  --done-dim: #1F4A38;
+  --snooze: #E0875F;
+  --snooze-dim: #4A3326;
+
+  --mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+  --sans: 'IBM Plex Sans', -apple-system, sans-serif;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+html{ color-scheme: dark; }
+
+body{
+  background: var(--ink);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(140,134,240,0.07), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(95,203,148,0.05), transparent 35%);
+  color: var(--paper);
+  font-family: var(--sans);
+  line-height: 1.5;
+  min-height: 100vh;
+  padding: 28px 28px 60px;
+}
+
+@media (max-width: 720px){
+  body{ padding: 16px 14px 48px; }
+}
+
+a{ color: inherit; text-decoration: none; }
+
+::selection{ background: var(--wip-dim); color: var(--paper); }
+
+::-webkit-scrollbar{ width: 8px; height: 8px; }
+::-webkit-scrollbar-track{ background: transparent; }
+::-webkit-scrollbar-thumb{ background: var(--line); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover{ background: var(--mute-dim); }
+
+.wrap{ max-width: 1320px; margin: 0 auto; }
+
+.mono{ font-family: var(--mono); }
+
+/* ============================================================
+   HERO / TERMINAL
+   ============================================================ */
+.hero{
+  background: linear-gradient(180deg, var(--panel) 0%, var(--ink-2) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,0.6);
+}
+
+.hero-bar{
+  display:flex; align-items:center; gap:8px;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--line-soft);
+}
+.dot{ width:10px; height:10px; border-radius:50%; opacity:0.85; }
+.dot.r{ background:#E0685F; } .dot.y{ background:#E0B85F; } .dot.g{ background:#5FCB94; }
+.hero-title{
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mute);
+  letter-spacing: 0.02em;
+}
+.hero-title b{ color: var(--paper-dim); font-weight: 500; }
+
+.hero-body{
+  padding: 26px 28px 28px;
+  display: grid;
+  grid-template-columns: 1.25fr auto 1fr;
+  gap: 30px;
+  align-items: center;
+}
+@media (max-width: 1080px){
+  .hero-body{ grid-template-columns: 1fr; gap: 22px; padding: 22px 18px 24px; }
+  .ring-wrap{ flex-direction: row !important; justify-content: center; gap: 24px !important; }
+}
+
+.terminal-feed{
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--mute);
+  min-height: 168px;
+}
+.terminal-feed .ln{ margin-bottom: 7px; white-space: pre-wrap; }
+.terminal-feed .prompt{ color: var(--wip); }
+.terminal-feed .path{ color: var(--done); }
+.terminal-feed .out{ color: var(--paper-dim); }
+.terminal-feed .accent-new{ color: var(--new); }
+.terminal-feed .accent-wip{ color: var(--wip); }
+.terminal-feed .accent-done{ color: var(--done); }
+.cursor{
+  display:inline-block; width:7px; height:14px; background: var(--paper-dim);
+  margin-left:2px; vertical-align: -2px;
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink{ 50%{ opacity:0; } }
+
+.stat-grid{
+  display:grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+}
+.statcard{
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  position: relative;
+}
+.statcard .num{
+  font-family: var(--mono); font-size: 28px; font-weight: 600;
+  line-height: 1; color: var(--paper);
+}
+.statcard .lbl{
+  margin-top: 6px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--mute);
+}
+.statcard .bar{
+  position:absolute; left:0; top:0; bottom:0; width:3px; border-radius: 3px 0 0 3px;
+}
+.statcard.c-new .bar{ background: var(--new); } .statcard.c-new .num{ color: var(--new); }
+.statcard.c-wip .bar{ background: var(--wip); } .statcard.c-wip .num{ color: var(--wip); }
+.statcard.c-done .bar{ background: var(--done); } .statcard.c-done .num{ color: var(--done); }
+.statcard.c-total .bar{ background: var(--mute); }
+
+.ring-wrap{
+  display:flex; flex-direction:column; align-items:center; gap: 14px;
+}
+.ring-svg{ display:block; }
+.ring-track{ fill:none; stroke: var(--ink-2); stroke-width: 9; }
+.ring-seg{ fill:none; stroke-width: 9; transition: stroke-dasharray 0.6s ease; }
+.ring-seg.ring-done{ stroke: var(--done); }
+.ring-seg.ring-wip{ stroke: var(--wip); }
+.ring-pct{ font-family: var(--mono); font-size: 15px; font-weight:600; fill: var(--paper); }
+.ring-sub{ font-family: var(--sans); font-size: 6.5px; letter-spacing: 0.12em; fill: var(--mute); }
+.ring-legend{ display:flex; flex-direction:column; gap: 6px; }
+.ring-legend-row{
+  display:flex; align-items:center; gap: 8px; font-size: 12px; color: var(--mute);
+  white-space: nowrap;
+}
+.ring-legend-row b{ color: var(--paper-dim); font-family: var(--mono); margin-left: 2px; font-weight: 600; }
+.dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.dot.c-done{ background: var(--done); }
+.dot.c-wip{ background: var(--wip); }
+.dot.c-new{ background: var(--new); }
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+.controls{
+  margin-top: 22px;
+  display:flex; align-items:center; gap: 10px; flex-wrap: wrap;
+}
+.search-wrap{
+  flex: 1 1 240px; position:relative; min-width: 200px;
+}
+.search-wrap input{
+  width:100%; background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 10px 14px 10px 36px;
+  color: var(--paper); font-family: var(--sans); font-size: 13.5px;
+  outline: none; transition: border-color 0.15s;
+}
+.search-wrap input:focus{ border-color: var(--wip); }
+.search-wrap input::placeholder{ color: var(--mute-dim); }
+.search-wrap svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color: var(--mute); width:14px; height:14px; }
+
+select.topic-filter{
+  background: var(--panel); border: 1px solid var(--line); color: var(--paper-dim);
+  font-family: var(--sans); font-size: 13px; padding: 10px 12px; border-radius: var(--radius-sm);
+  outline:none; cursor:pointer;
+}
+
+.btn{
+  display:inline-flex; align-items:center; gap:7px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--paper-dim);
+  font-family: var(--sans); font-size: 13px; font-weight:500; padding: 10px 14px;
+  border-radius: var(--radius-sm); cursor:pointer; transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.btn:hover{ background: var(--panel-hover); border-color: var(--mute-dim); }
+.btn svg{ width:14px; height:14px; }
+.btn.primary{ border-color: var(--wip); color: var(--paper); }
+.btn.primary:hover{ background: var(--wip-dim); }
+
+/* ============================================================
+   BOARD
+   ============================================================ */
+.board{
+  margin-top: 18px;
+  display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+@media (max-width: 980px){
+  .board{ grid-template-columns: 1fr; }
+}
+
+.col{
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display:flex; flex-direction:column;
+  min-height: 200px;
+  max-height: 640px;
+}
+.col-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
+}
+.col-head .ttl{
+  display:flex; align-items:center; gap:8px;
+  font-family: var(--mono); font-size: 12.5px; letter-spacing:0.04em; text-transform: uppercase;
+  color: var(--paper-dim); font-weight:600;
+}
+.col-head .swatch{ width:8px; height:8px; border-radius:50%; }
+.col.new .swatch{ background: var(--new); }
+.col.wip .swatch{ background: var(--wip); }
+.col.done .swatch{ background: var(--done); }
+.col-head .count{
+  font-family: var(--mono); font-size: 12px; color: var(--mute);
+  background: var(--ink-2); border:1px solid var(--line); border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.col-body{
+  overflow-y: auto; padding: 10px; flex:1;
+  display:flex; flex-direction:column; gap:8px;
+}
+
+.empty-note{
+  color: var(--mute-dim); font-size: 12.5px; text-align:center; padding: 24px 10px;
+  font-family: var(--mono);
+}
+
+.card{
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.card:hover{ border-color: var(--mute-dim); }
+
+.card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.card-link{ display:flex; align-items:flex-start; gap:8px; flex:1; min-width:0; }
+.card-id{
+  font-family: var(--mono); font-size: 10.5px; color: var(--mute);
+  background: var(--ink-2); border:1px solid var(--line); border-radius:4px;
+  padding: 1px 5px; flex-shrink:0; margin-top:1px;
+}
+.card-name{
+  font-size: 13.5px; color: var(--paper); font-weight: 500;
+  display:flex; align-items:center; gap:6px; min-width:0;
+}
+.card-name span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.card-name svg{ width:11px; height:11px; color: var(--mute-dim); flex-shrink:0; opacity:0; transition:opacity .15s; }
+.card:hover .card-name svg{ opacity:1; }
+
+.card-meta{
+  margin-top: 7px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+}
+.tag{
+  font-size: 10.5px; font-family: var(--mono); padding: 2px 7px; border-radius: 999px;
+  color: var(--mute); background: var(--ink-2); border:1px solid var(--line-soft);
+}
+.tag.snoozed{ color: var(--snooze); border-color: var(--snooze-dim); background: rgba(224,135,95,0.08); }
+.tag.ready{ color: var(--done); border-color: var(--done-dim); background: rgba(95,203,148,0.07); }
+
+/* ============================================================
+   PANELS ROW
+   ============================================================ */
+.panels{
+  margin-top: 18px;
+  display:grid; grid-template-columns: 1.1fr 1fr 0.9fr; gap: 16px;
+}
+@media (max-width: 980px){
+  .panels{ grid-template-columns: 1fr; }
+}
+.panel{
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px;
+}
+.panel-head{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;
+}
+.panel-head h3{
+  font-family: var(--mono); font-size: 12px; text-transform:uppercase; letter-spacing:0.06em;
+  color: var(--paper-dim); font-weight:600;
+}
+.panel-head .sub{ font-size: 11px; color: var(--mute-dim); font-family: var(--mono); }
+
+/* queue list */
+.queue-item{
+  display:flex; align-items:center; gap:10px; padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.queue-item:last-child{ border-bottom:none; }
+.queue-rank{
+  font-family: var(--mono); font-size: 11px; color: var(--mute-dim);
+  width: 18px; flex-shrink:0;
+}
+.queue-name{ font-size: 13px; color: var(--paper-dim); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.queue-status{
+  font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius:999px; flex-shrink:0;
+}
+.queue-status.wip{ color: var(--wip); background: rgba(140,134,240,0.1); }
+.queue-status.new{ color: var(--new); background: rgba(242,181,68,0.1); }
+
+/* topic bars */
+.topic-row{ margin-bottom: 11px; }
+.topic-row:last-child{ margin-bottom:0; }
+.topic-row .tline{
+  display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;
+  color: var(--paper-dim);
+}
+.topic-row .tline .n{ color: var(--mute); font-family: var(--mono); font-size:11px; }
+.topic-bar{
+  height:7px; border-radius:5px; background: var(--ink-2); overflow:hidden; display:flex;
+  border: 1px solid var(--line-soft);
+}
+.topic-seg.done{ background: var(--done); }
+.topic-seg.wip{ background: var(--wip); }
+.topic-seg.new{ background: var(--new-dim); }
+
+/* snoozed list */
+.snooze-item{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding: 8px 0; border-bottom: 1px solid var(--line-soft);
+}
+.snooze-item:last-child{ border-bottom:none; }
+.snooze-name{ font-size:12.5px; color: var(--paper-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.snooze-eta{ font-family: var(--mono); font-size:10.5px; color: var(--snooze); flex-shrink:0; }
+
+/* ============================================================
+   FOOTER / TOAST
+   ============================================================ */
+.footer{
+  margin-top: 26px; display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:10px;
+  font-size: 12px; color: var(--mute-dim); font-family: var(--mono);
+}
+.footer a{ color: var(--mute); border-bottom: 1px dotted var(--line); }
+.footer a:hover{ color: var(--paper-dim); }
+
+.toast{
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(10px);
+  background: var(--panel-raised); border: 1px solid var(--line); color: var(--paper);
+  font-family: var(--mono); font-size: 12.5px; padding: 10px 16px; border-radius: var(--radius-sm);
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,0.5);
+  opacity:0; pointer-events:none; transition: opacity .2s, transform .2s;
+  z-index: 50;
+}
+.toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+.toast b{ color: var(--done); }
+
+@media (prefers-reduced-motion: reduce){
+  .cursor{ animation: none; }
+  *{ transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="hero-title"><b>kunal@dsa-agent</b> — ~/problems.db</span>
+    </div>
+    <div class="hero-body">
+      <div class="terminal-feed" id="terminal-feed"><div class="ln"><span class="prompt">kunal@dsa-agent</span><span class="path"> ~/problems.db</span> % status</div><div class="ln out">scanning problems.db…</div></div>
+      <div class="ring-wrap" id="ring-wrap"></div>
+      <div class="stat-grid" id="stat-grid"></div>
+    </div>
+  </header>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="search" placeholder="Search problems by name or id…" autocomplete="off">
+    </div>
+    <select class="topic-filter" id="topic-filter"></select>
+    <button class="btn" id="reset-btn" title="Re-fetch problems.db from this repo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      Reload
+    </button>
+  </div>
+
+  <!-- BOARD -->
+  <div class="board">
+    <div class="col new">
+      <div class="col-head">
+        <div class="ttl"><span class="swatch"></span>New</div>
+        <div class="count" id="count-new">0</div>
+      </div>
+      <div class="col-body" id="col-new"></div>
+    </div>
+    <div class="col wip">
+      <div class="col-head">
+        <div class="ttl"><span class="swatch"></span>In Progress</div>
+        <div class="count" id="count-wip">0</div>
+      </div>
+      <div class="col-body" id="col-wip"></div>
+    </div>
+    <div class="col done">
+      <div class="col-head">
+        <div class="ttl"><span class="swatch"></span>Done</div>
+        <div class="count" id="count-done">0</div>
+      </div>
+      <div class="col-body" id="col-done"></div>
+    </div>
+  </div>
+
+  <!-- PANELS -->
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-head"><h3>Up next in queue</h3><span class="sub" id="queue-eligible-count"></span></div>
+      <div id="queue-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Pattern coverage</h3><span class="sub">done · wip · new</span></div>
+      <div id="topic-list"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Snoozed</h3><span class="sub" id="snooze-count"></span></div>
+      <div id="snooze-list"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>source: <a href="https://github.com/loki1205/kunal-dsa-agent" target="_blank" rel="noopener">loki1205/kunal-dsa-agent</a> · reading <span id="source-label">looking for problems.db…</span></span>
+    <span id="last-loaded"></span>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script>
+/* ==========================================================
+   STATE
+   ========================================================== */
+let PROBLEMS = [];          // current working dataset
+let SOURCE_LABEL = 'looking for problems.db…';
+let dbFound = null;         // null = not checked yet, true/false after first load attempt
+let NOW = new Date();
+
+/* ==========================================================
+   TOPIC CLASSIFIER
+   Ordered keyword rules — first match wins. Falls back to
+   "Math & Misc" for anything unrecognized (keeps the panel
+   useful even as new problems get seeded in over time).
+   ========================================================== */
+const TOPIC_RULES = [
+  ["Binary Search", ["binary search","rotated sorted array","peak index","find peak element","bad version","search insert position","koko eating","capacity to ship","smallest divisor","median of two sorted arrays","find minimum in rotated"]],
+  ["Sliding Window", ["sliding window","substring without repeating","character replacement","permutation in string","minimum window substring","fruit into baskets","consecutive ones iii","k different integers","minimum size subarray"]],
+  ["Two Pointers", ["3sum","4sum","two sum ii","container with most water","trapping rain water","squares of a sorted array","remove duplicates from sorted array","valid palindrome","move zeroes"]],
+  ["Stack & Queue", ["min stack","valid parenthes","reverse polish","daily temperatures","stock span","car fleet","histogram","queue using stacks","decode string","asteroid collision","adjacent duplicates","generate parenthes"]],
+  ["Linked List", ["linked list","add two numbers","k-group","k sorted lists","random pointer"]],
+  ["Heap & Top-K", ["top k frequent","kth largest","k closest points","lfu cache"]],
+  ["Intervals", ["interval","meeting rooms"]],
+  ["Bit Manipulation", [" bits","bitwise","power of two","single number","add binary","sum of two integers","missing number","reverse bits"]],
+  ["Design", ["design hashset","design hashmap","lru cache"]],
+  ["Matrix", ["matrix","spiral","rotate image","diagonal traverse","sudoku"]],
+  ["Graphs & Grid", ["islands","surrounded regions","pacific atlantic","word search","maximal square","path sum"]],
+  ["Strings", ["palindrom","anagram","word pattern","strstr","multiply strings","zigzag","encode and decode","string"]],
+  ["Arrays & Hashing", ["two sum","duplicate","contains duplicate","happy number","jewels","occurrences","disappeared","missing positive","subarray sum","divisible by k","intersection of two arrays","majority element"]],
+  ["Sorting", ["sort"]],
+];
+
+function classifyTopic(name){
+  const n = name.toLowerCase();
+  for (const [topic, kws] of TOPIC_RULES){
+    for (const kw of kws){
+      if (n.includes(kw)) return topic;
+    }
+  }
+  return "Math & Misc";
+}
+
+/* ==========================================================
+   HELPERS
+   ========================================================== */
+function parseDate(s){
+  if (!s) return null;
+  // SQLite default is "YYYY-MM-DD HH:MM:SS" (space, not T) — normalize for Safari/Date parsing
+  return new Date(s.replace(' ', 'T') + 'Z');
+}
+
+function isSnoozed(p){
+  if (!p.skip_until) return false;
+  const d = parseDate(p.skip_until);
+  return d && d.getTime() > NOW.getTime();
+}
+
+function fmtRelative(dateObj, fromNow){
+  const diffMs = dateObj.getTime() - fromNow.getTime();
+  const past = diffMs < 0;
+  const abs = Math.abs(diffMs);
+  const mins = Math.floor(abs / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+  let out;
+  if (days > 0) out = `${days}d ${hrs % 24}h`;
+  else if (hrs > 0) out = `${hrs}h ${mins % 60}m`;
+  else out = `${Math.max(mins,1)}m`;
+  return past ? `${out} ago` : `in ${out}`;
+}
+
+function fmtCreated(dateObj){
+  return dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showToast(html){
+  const t = document.getElementById('toast');
+  t.innerHTML = html;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ==========================================================
+   ICONS (inline, no external deps)
+   ========================================================== */
+const ICON_EXTERNAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+
+/* ==========================================================
+   FILTER STATE
+   ========================================================== */
+let searchQuery = '';
+let topicFilter = 'all';
+
+function getFiltered(){
+  return PROBLEMS.filter(p => {
+    if (topicFilter !== 'all' && classifyTopic(p.name) !== topicFilter) return false;
+    if (searchQuery){
+      const q = searchQuery.toLowerCase();
+      if (!p.name.toLowerCase().includes(q) && !String(p.id).includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ==========================================================
+   RENDER: TERMINAL HERO
+   ========================================================== */
+let terminalTyped = false;
+
+function computeStats(list){
+  const total = list.length;
+  const done = list.filter(p => p.status === 'done').length;
+  const wip = list.filter(p => p.status === 'inprogress').length;
+  const nw = list.filter(p => p.status === 'new').length;
+  return { total, done, wip, nw, pct: total ? Math.round((done/total)*100) : 0 };
+}
+
+function renderHero(){
+  const s = computeStats(PROBLEMS);
+  const grid = document.getElementById('stat-grid');
+  grid.innerHTML = `
+    <div class="statcard c-total"><div class="bar"></div><div class="num">${s.total}</div><div class="lbl">Total tracked</div></div>
+    <div class="statcard c-new"><div class="bar"></div><div class="num">${s.nw}</div><div class="lbl">New</div></div>
+    <div class="statcard c-wip"><div class="bar"></div><div class="num">${s.wip}</div><div class="lbl">In progress</div></div>
+    <div class="statcard c-done"><div class="bar"></div><div class="num">${s.done}</div><div class="lbl">Done</div></div>
+  `;
+  document.getElementById('ring-wrap').innerHTML = renderRing(s);
+
+  if (!terminalTyped){
+    terminalTyped = true;
+    typeTerminal(s);
+  } else {
+    // just refresh the static output line stats without re-typing
+    const out = document.getElementById('tf-out');
+    if (out) out.innerHTML = statsLine(s);
+  }
+}
+
+function renderRing(s){
+  const r = 34, C = 2 * Math.PI * r;
+  const doneLen = s.total ? C * (s.done / s.total) : 0;
+  const wipLen = s.total ? C * (s.wip / s.total) : 0;
+  return `
+    <svg viewBox="0 0 80 80" width="120" height="120" class="ring-svg">
+      <g transform="rotate(-90 40 40)">
+        <circle cx="40" cy="40" r="${r}" class="ring-track"/>
+        <circle cx="40" cy="40" r="${r}" class="ring-seg ring-done" stroke-dasharray="${doneLen} ${C - doneLen}"/>
+        <circle cx="40" cy="40" r="${r}" class="ring-seg ring-wip" stroke-dasharray="${wipLen} ${C - wipLen}" stroke-dashoffset="${-doneLen}"/>
+      </g>
+      <text x="40" y="38" text-anchor="middle" class="ring-pct">${s.pct}%</text>
+      <text x="40" y="49" text-anchor="middle" class="ring-sub">SHIPPED</text>
+    </svg>
+    <div class="ring-legend">
+      <div class="ring-legend-row"><span class="dot c-done"></span>Done<b>${s.done}</b></div>
+      <div class="ring-legend-row"><span class="dot c-wip"></span>In progress<b>${s.wip}</b></div>
+      <div class="ring-legend-row"><span class="dot c-new"></span>New<b>${s.nw}</b></div>
+    </div>
+  `;
+}
+
+function statsLine(s){
+  return `<span class="accent-new">${s.nw} new</span> · <span class="accent-wip">${s.wip} in progress</span> · <span class="accent-done">${s.done} done</span> · ${s.total} total`;
+}
+
+function typeTerminal(s){
+  const el = document.getElementById('terminal-feed');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const scanLine = dbFound === false ? 'scanning problems.db…  not found' : 'scanning problems.db…  ok';
+  const tailLine = dbFound === false
+    ? 'sitting at zero — add problems.db next to index.html.'
+    : 'next dispatch ready when you are.';
+
+  if (reduced){
+    el.innerHTML = `
+      <div class="ln"><span class="prompt">kunal@dsa-agent</span><span class="path"> ~/problems.db</span> % status</div>
+      <div class="ln out">${scanLine}</div>
+      <div class="ln out" id="tf-out">${statsLine(s)}</div>
+      <div class="ln out">${tailLine}<span class="cursor"></span></div>
+    `;
+    return;
+  }
+
+  el.innerHTML = `<div class="ln" id="tf-l1"></div><div class="ln out" id="tf-l2" style="opacity:0"></div><div class="ln out" id="tf-l3" style="opacity:0" ></div><div class="ln out" id="tf-l4" style="opacity:0">${tailLine}<span class="cursor"></span></div>`;
+
+  const l1 = document.getElementById('tf-l1');
+  const full1 = 'kunal@dsa-agent ~/problems.db % status';
+  let i = 0;
+  const typer = setInterval(() => {
+    i++;
+    l1.innerHTML = `<span class="prompt">${escapeHtml(full1.slice(0, Math.min(i,15)))}</span><span class="path">${escapeHtml(full1.slice(15, Math.min(i,30)))}</span>${escapeHtml(full1.slice(30, i))}<span class="cursor"></span>`;
+    if (i >= full1.length){
+      clearInterval(typer);
+      setTimeout(() => {
+        l1.innerHTML = `<span class="prompt">kunal@dsa-agent</span><span class="path"> ~/problems.db</span> % status`;
+        const l2 = document.getElementById('tf-l2');
+        l2.style.transition = 'opacity .3s';
+        l2.style.opacity = 1;
+        l2.textContent = scanLine;
+        setTimeout(() => {
+          const l3 = document.getElementById('tf-l3');
+          l3.id = 'tf-out';
+          l3.style.transition = 'opacity .3s';
+          l3.style.opacity = 1;
+          l3.innerHTML = statsLine(s);
+          setTimeout(() => {
+            const l4 = document.getElementById('tf-l4');
+            l4.style.transition = 'opacity .3s';
+            l4.style.opacity = 1;
+          }, 300);
+        }, 350);
+      }, 250);
+    }
+  }, 22);
+}
+
+/* ==========================================================
+   RENDER: BOARD
+   ========================================================== */
+function cardHtml(p){
+  const topic = classifyTopic(p.name);
+  const snoozed = isSnoozed(p);
+  const created = parseDate(p.created_at);
+  let metaTag = '';
+  if (p.status !== 'done'){
+    if (snoozed){
+      const d = parseDate(p.skip_until);
+      metaTag = `<span class="tag snoozed">⏸ ${fmtRelative(d, NOW)}</span>`;
+    } else {
+      metaTag = `<span class="tag ready">● ready to send</span>`;
+    }
+  }
+  return `
+    <div class="card" data-id="${p.id}">
+      <div class="card-top">
+        <a class="card-link" href="${escapeHtml(p.url)}" target="_blank" rel="noopener">
+          <span class="card-id mono">#${p.id}</span>
+          <span class="card-name"><span>${escapeHtml(p.name)}</span>${ICON_EXTERNAL}</span>
+        </a>
+      </div>
+      <div class="card-meta">
+        <span class="tag">${escapeHtml(topic)}</span>
+        ${metaTag}
+        ${created ? `<span class="tag">${fmtCreated(created)}</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderBoard(){
+  const filtered = getFiltered();
+  const groups = { new: [], inprogress: [], done: [] };
+  filtered.forEach(p => groups[p.status]?.push(p));
+
+  const map = { new: 'col-new', inprogress: 'col-wip', done: 'col-done' };
+  const countMap = { new: 'count-new', inprogress: 'count-wip', done: 'count-done' };
+
+  for (const status of ['new','inprogress','done']){
+    const el = document.getElementById(map[status]);
+    const items = groups[status];
+    document.getElementById(countMap[status]).textContent = items.length;
+    el.innerHTML = items.length
+      ? items.map(cardHtml).join('')
+      : `<div class="empty-note">${PROBLEMS.length ? '— nothing here —' : 'no problems.db loaded'}</div>`;
+  }
+}
+
+/* ==========================================================
+   RENDER: TOPIC FILTER OPTIONS
+   ========================================================== */
+function renderTopicFilter(){
+  const sel = document.getElementById('topic-filter');
+  const topics = [...new Set(PROBLEMS.map(p => classifyTopic(p.name)))].sort();
+  sel.innerHTML = `<option value="all">All patterns</option>` +
+    topics.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  sel.value = topicFilter;
+}
+
+/* ==========================================================
+   RENDER: UP NEXT QUEUE
+   Mirrors the agent's own visibility + priority rules:
+   status != done AND (skip_until is null OR skip_until <= now)
+   inprogress items are dispatched before new items.
+   ========================================================== */
+function renderQueue(){
+  const eligible = PROBLEMS.filter(p => p.status !== 'done' && !isSnoozed(p));
+  const ordered = [
+    ...eligible.filter(p => p.status === 'inprogress').sort((a,b) => a.id - b.id),
+    ...eligible.filter(p => p.status === 'new').sort((a,b) => a.id - b.id),
+  ];
+  document.getElementById('queue-eligible-count').textContent = `${eligible.length} eligible`;
+  const top = ordered.slice(0, 8);
+  document.getElementById('queue-list').innerHTML = top.length ? top.map((p, idx) => `
+    <div class="queue-item">
+      <span class="queue-rank mono">${idx+1}</span>
+      <span class="queue-name">${escapeHtml(p.name)}</span>
+      <span class="queue-status ${p.status === 'inprogress' ? 'wip' : 'new'} mono">${p.status === 'inprogress' ? 'wip' : 'new'}</span>
+    </div>
+  `).join('') : `<div class="empty-note">${PROBLEMS.length ? 'queue is empty — everything is snoozed or done' : 'no problems.db loaded'}</div>`;
+}
+
+/* ==========================================================
+   RENDER: PATTERN COVERAGE
+   ========================================================== */
+function renderTopics(){
+  const byTopic = {};
+  PROBLEMS.forEach(p => {
+    const t = classifyTopic(p.name);
+    byTopic[t] ??= { done: 0, wip: 0, nw: 0, total: 0 };
+    byTopic[t].total++;
+    if (p.status === 'done') byTopic[t].done++;
+    else if (p.status === 'inprogress') byTopic[t].wip++;
+    else byTopic[t].nw++;
+  });
+  const rows = Object.entries(byTopic).sort((a,b) => b[1].total - a[1].total);
+  document.getElementById('topic-list').innerHTML = rows.length ? rows.map(([topic, c]) => `
+    <div class="topic-row">
+      <div class="tline"><span>${escapeHtml(topic)}</span><span class="n">${c.done}/${c.total}</span></div>
+      <div class="topic-bar">
+        <div class="topic-seg done" style="width:${c.total? c.done/c.total*100:0}%"></div>
+        <div class="topic-seg wip" style="width:${c.total? c.wip/c.total*100:0}%"></div>
+        <div class="topic-seg new" style="width:${c.total? c.nw/c.total*100:0}%"></div>
+      </div>
+    </div>
+  `).join('') : `<div class="empty-note">no problems.db loaded</div>`;
+}
+
+/* ==========================================================
+   RENDER: SNOOZED
+   ========================================================== */
+function renderSnoozed(){
+  const snoozed = PROBLEMS.filter(p => p.status !== 'done' && isSnoozed(p))
+    .sort((a,b) => parseDate(a.skip_until) - parseDate(b.skip_until));
+  document.getElementById('snooze-count').textContent = `${snoozed.length} hidden`;
+  document.getElementById('snooze-list').innerHTML = snoozed.length ? snoozed.slice(0, 10).map(p => `
+    <div class="snooze-item">
+      <span class="snooze-name">${escapeHtml(p.name)}</span>
+      <span class="snooze-eta">${fmtRelative(parseDate(p.skip_until), NOW)}</span>
+    </div>
+  `).join('') : `<div class="empty-note">${PROBLEMS.length ? 'nothing snoozed right now' : 'no problems.db loaded'}</div>`;
+}
+
+/* ==========================================================
+   FULL RENDER
+   ========================================================== */
+function renderAll(){
+  NOW = new Date();
+  renderHero();
+  renderTopicFilter();
+  renderBoard();
+  renderQueue();
+  renderTopics();
+  renderSnoozed();
+  document.getElementById('source-label').textContent = SOURCE_LABEL;
+}
+
+/* ==========================================================
+   EVENTS
+   ========================================================== */
+document.getElementById('search').addEventListener('input', e => {
+  searchQuery = e.target.value.trim();
+  renderBoard();
+});
+
+document.getElementById('topic-filter').addEventListener('change', e => {
+  topicFilter = e.target.value;
+  renderBoard();
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  loadFromRepo(true);
+});
+
+/* ==========================================================
+   AUTO-LOAD problems.db FROM THE REPO
+   On GitHub Pages this fetches the file sitting next to
+   index.html. If it's missing (404, blocked, or unreadable),
+   we don't fall back to any sample data — we just sit at
+   zero so the dashboard always reflects what's really there.
+   ========================================================== */
+async function loadFromRepo(isManualReload){
+  if (isManualReload) showToast('Re-reading problems.db…');
+  searchQuery = '';
+  topicFilter = 'all';
+  const searchEl = document.getElementById('search');
+  if (searchEl) searchEl.value = '';
+
+  try{
+    const res = await fetch('problems.db', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    const SQL = await getSqlJs();
+    const db = new SQL.Database(new Uint8Array(buf));
+    const result = db.exec("SELECT id, name, url, status, skip_until, created_at FROM problems ORDER BY id");
+    db.close();
+    if (!result.length){
+      PROBLEMS = [];
+    } else {
+      const cols = result[0].columns;
+      PROBLEMS = result[0].values.map(v => Object.fromEntries(cols.map((c,i) => [c, v[i]])));
+    }
+    dbFound = true;
+    SOURCE_LABEL = 'problems.db (this repo)';
+    document.getElementById('last-loaded').textContent = `checked ${new Date().toLocaleTimeString()}`;
+    if (isManualReload) showToast(`Loaded <b>${PROBLEMS.length}</b> problems from problems.db`);
+  } catch(err){
+    console.warn('problems.db not found or unreadable next to index.html:', err);
+    PROBLEMS = [];
+    dbFound = false;
+    SOURCE_LABEL = 'problems.db not found';
+    document.getElementById('last-loaded').textContent = `checked ${new Date().toLocaleTimeString()}`;
+    if (isManualReload) showToast(`Still can't find <b>problems.db</b> next to index.html`);
+  }
+  renderAll();
+}
+
+/* ==========================================================
+   sql.js LOADER — runs SQLite (compiled to WASM) in the browser
+   so problems.db can be read directly, client-side, no server.
+   ========================================================== */
+let sqlJsPromise = null;
+function getSqlJs(){
+  if (!sqlJsPromise){
+    sqlJsPromise = initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+  }
+  return sqlJsPromise;
+}
+
+/* ==========================================================
+   INIT
+   ========================================================== */
+loadFromRepo(false);
+setInterval(() => { NOW = new Date(); renderQueue(); renderSnoozed(); }, 60000);
+
+</script>
+</body>
+</html>
