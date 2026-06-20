@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Kunal DSA Agent Dashboard</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+    --bg:#0b1020;
+    --card:#151c35;
+    --border:#253053;
+    --text:#ffffff;
+    --muted:#9aa7c7;
+    --green:#22c55e;
+    --blue:#3b82f6;
+    --orange:#f59e0b;
+    --red:#ef4444;
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+body{
+    background:linear-gradient(135deg,#0b1020,#111827);
+    color:var(--text);
+    font-family:Inter,system-ui,sans-serif;
+    min-height:100vh;
+}
+
+.container{
+    max-width:1500px;
+    margin:auto;
+    padding:30px;
+}
+
+.header{
+    margin-bottom:25px;
+}
+
+.header h1{
+    font-size:36px;
+}
+
+.header p{
+    color:var(--muted);
+    margin-top:8px;
+}
+
+.grid{
+    display:grid;
+    gap:18px;
+}
+
+.stats{
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    margin-bottom:20px;
+}
+
+.card{
+    background:rgba(21,28,53,.9);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:20px;
+    backdrop-filter:blur(10px);
+}
+
+.label{
+    color:var(--muted);
+    margin-bottom:10px;
+}
+
+.value{
+    font-size:42px;
+    font-weight:800;
+}
+
+.main{
+    grid-template-columns:1fr 1fr;
+    margin-bottom:20px;
+}
+
+.large{
+    min-height:380px;
+}
+
+.searchbar{
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:#0f172a;
+    color:white;
+    margin-bottom:15px;
+}
+
+.filters{
+    display:flex;
+    gap:10px;
+    margin-bottom:15px;
+    flex-wrap:wrap;
+}
+
+.filter{
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    cursor:pointer;
+    color:var(--muted);
+}
+
+.filter.active{
+    background:#1f2937;
+    color:white;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    text-align:left;
+    padding:12px;
+    border-bottom:1px solid rgba(255,255,255,.05);
+}
+
+th{
+    color:var(--muted);
+}
+
+.badge{
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px;
+}
+
+.new{
+    background:rgba(59,130,246,.2);
+    color:#60a5fa;
+}
+
+.in_progress{
+    background:rgba(245,158,11,.2);
+    color:#fbbf24;
+}
+
+.done{
+    background:rgba(34,197,94,.2);
+    color:#4ade80;
+}
+
+.queue-item{
+    padding:12px;
+    border-bottom:1px solid rgba(255,255,255,.05);
+}
+
+.queue-item:last-child{
+    border:none;
+}
+
+.queue-date{
+    color:var(--muted);
+    font-size:12px;
+}
+
+.status{
+    color:#22c55e;
+    margin-top:8px;
+}
+
+.error{
+    color:#ef4444;
+}
+
+a{
+    color:#60a5fa;
+    text-decoration:none;
+}
+
+@media(max-width:900px){
+    .main{
+        grid-template-columns:1fr;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h1>🚀 Kunal DSA Agent</h1>
+        <p id="status">Loading problems.db...</p>
+    </div>
+
+    <div class="grid stats">
+
+        <div class="card">
+            <div class="label">New</div>
+            <div class="value" id="newCount">0</div>
+        </div>
+
+        <div class="card">
+            <div class="label">In Progress</div>
+            <div class="value" id="progressCount">0</div>
+        </div>
+
+        <div class="card">
+            <div class="label">Done</div>
+            <div class="value" id="doneCount">0</div>
+        </div>
+
+        <div class="card">
+            <div class="label">Due Today</div>
+            <div class="value" id="dueCount">0</div>
+        </div>
+
+    </div>
+
+    <div class="grid main">
+
+        <div class="card large">
+            <h3>Progress</h3>
+            <br>
+            <canvas id="progressChart"></canvas>
+
+            <br><br>
+
+            <div id="insights"></div>
+        </div>
+
+        <div class="card large">
+            <h3>Revision Queue</h3>
+            <br>
+
+            <div id="revisionQueue">
+                Loading...
+            </div>
+        </div>
+
+    </div>
+
+    <div class="card">
+
+        <h3>Problem Explorer</h3>
+
+        <br>
+
+        <input
+            id="search"
+            class="searchbar"
+            placeholder="Search problems..."
+        >
+
+        <div class="filters">
+            <div class="filter active" data-filter="all">All</div>
+            <div class="filter" data-filter="new">New</div>
+            <div class="filter" data-filter="in_progress">In Progress</div>
+            <div class="filter" data-filter="done">Done</div>
+        </div>
+
+        <table>
+
+            <thead>
+            <tr>
+                <th>Problem</th>
+                <th>Status</th>
+                <th>Revision</th>
+                <th>Open</th>
+            </tr>
+            </thead>
+
+            <tbody id="tableBody"></tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script>
+
+let allProblems = [];
+let currentFilter = "all";
+
+function normalizeStatus(status){
+
+    if(!status) return "new";
+
+    status = status.toLowerCase();
+
+    if(status.includes("progress")) return "in_progress";
+    if(status.includes("done")) return "done";
+
+    return "new";
+}
+
+function render(){
+
+    let done =
+        allProblems.filter(x => x.status === "done").length;
+
+    let progress =
+        allProblems.filter(x => x.status === "in_progress").length;
+
+    let fresh =
+        allProblems.filter(x => x.status === "new").length;
+
+    let due =
+        allProblems.filter(x => {
+
+            if(!x.skip_until) return false;
+
+            return new Date(x.skip_until)
+                <= new Date();
+
+        }).length;
+
+    document.getElementById("newCount").textContent = fresh;
+    document.getElementById("progressCount").textContent = progress;
+    document.getElementById("doneCount").textContent = done;
+    document.getElementById("dueCount").textContent = due;
+
+    renderChart(fresh,progress,done);
+    renderInsights(done);
+    renderRevisionQueue();
+    renderTable();
+}
+
+function renderChart(newCount, progress, done){
+
+    const ctx =
+        document.getElementById("progressChart");
+
+    if(window.chart)
+        window.chart.destroy();
+
+    window.chart = new Chart(ctx,{
+        type:"doughnut",
+        data:{
+            labels:["New","In Progress","Done"],
+            datasets:[{
+                data:[
+                    newCount,
+                    progress,
+                    done
+                ]
+            }]
+        },
+        options:{
+            responsive:true
+        }
+    });
+}
+
+function renderInsights(){
+
+    let done =
+        allProblems.filter(x=>x.status==="done").length;
+
+    let total = allProblems.length;
+
+    let percent =
+        total
+            ? Math.round(done/total*100)
+            : 0;
+
+    document.getElementById("insights")
+        .innerHTML = `
+            <h2>${percent}% Complete</h2>
+            <br>
+            <p>${done} / ${total} solved</p>
+        `;
+}
+
+function renderRevisionQueue(){
+
+    const due = allProblems
+        .filter(x => x.skip_until)
+        .sort((a,b)=>
+            new Date(a.skip_until)
+            - new Date(b.skip_until)
+        )
+        .slice(0,20);
+
+    document.getElementById("revisionQueue")
+        .innerHTML = due.length
+        ? due.map(x=>`
+            <div class="queue-item">
+                <div>${x.name}</div>
+                <div class="queue-date">
+                    ${x.skip_until}
+                </div>
+            </div>
+        `).join("")
+        : "No revisions scheduled";
+}
+
+function renderTable(){
+
+    let data = [...allProblems];
+
+    const q =
+        document.getElementById("search")
+        .value
+        .toLowerCase();
+
+    if(q){
+
+        data = data.filter(x =>
+            x.name.toLowerCase()
+                .includes(q)
+        );
+    }
+
+    if(currentFilter !== "all"){
+
+        data = data.filter(
+            x => x.status === currentFilter
+        );
+    }
+
+    document.getElementById("tableBody")
+        .innerHTML = data.map(x => `
+        <tr>
+            <td>${x.name}</td>
+
+            <td>
+                <span class="badge ${x.status}">
+                    ${x.status}
+                </span>
+            </td>
+
+            <td>
+                ${x.skip_until || "-"}
+            </td>
+
+            <td>
+                <a target="_blank"
+                   href="${x.url}">
+                    Open
+                </a>
+            </td>
+        </tr>
+    `).join("");
+}
+
+async function loadDatabase(){
+
+    try{
+
+        const SQL =
+            await initSqlJs({
+                locateFile:file=>
+                `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+            });
+
+        const response =
+            await fetch(
+                `./problems.db?v=${Date.now()}`
+            );
+
+        if(!response.ok){
+
+            throw new Error(
+                "Could not load problems.db"
+            );
+        }
+
+        const buffer =
+            await response.arrayBuffer();
+
+        const db =
+            new SQL.Database(
+                new Uint8Array(buffer)
+            );
+
+        const result =
+            db.exec(
+                "SELECT * FROM problems"
+            );
+
+        if(!result.length){
+
+            throw new Error(
+                "No problems table found"
+            );
+        }
+
+        allProblems =
+            result[0].values.map(r => ({
+
+                id:r[0],
+                name:r[1],
+                url:r[2],
+                status:normalizeStatus(r[3]),
+                skip_until:r[4],
+                created_at:r[5]
+
+            }));
+
+        document.getElementById("status")
+            .innerHTML =
+            `Loaded ${allProblems.length} problems`;
+
+        render();
+
+    }
+    catch(err){
+
+        document.getElementById("status")
+            .innerHTML =
+            `<span class="error">
+                ${err.message}
+            </span>`;
+
+        console.error(err);
+    }
+}
+
+document.getElementById("search")
+.addEventListener(
+    "input",
+    renderTable
+);
+
+document
+.querySelectorAll(".filter")
+.forEach(btn=>{
+
+    btn.addEventListener("click",()=>{
+
+        document
+            .querySelectorAll(".filter")
+            .forEach(x=>
+                x.classList.remove("active")
+            );
+
+        btn.classList.add("active");
+
+        currentFilter =
+            btn.dataset.filter;
+
+        renderTable();
+    });
+});
+
+loadDatabase();
+
+</script>
+
+</body>
+</html>
