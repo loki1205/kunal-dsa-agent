@@ -414,7 +414,9 @@ select.topic-filter{
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input type="text" id="search" placeholder="Search problems by name or id…" autocomplete="off">
     </div>
-    <select class="topic-filter" id="topic-filter"></select>
+    <select class="topic-filter" id="topic-filter">
+        <option value="all">All patterns</option>
+    </select>
     <button class="btn" id="reset-btn" title="Re-fetch problems.db from this repo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
       Reload
@@ -750,7 +752,7 @@ function renderBoard(){
 function renderTopicFilter(){
   const sel = document.getElementById('topic-filter');
   const topics = [...new Set(PROBLEMS.map(p => classifyTopic(p.name)))].sort();
-  sel.innerHTML = `<option value="all">All patterns</option>` +
+  sel.innerHTML = sel.innerHTML +
     topics.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
   sel.value = topicFilter;
 }
